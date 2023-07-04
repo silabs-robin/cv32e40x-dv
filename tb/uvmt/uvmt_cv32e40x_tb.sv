@@ -117,7 +117,6 @@ module uvmt_cv32e40s_tb;
                              .RV32                 (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_RV32),
                              .CLIC                 (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_CLIC),
                              .CLIC_ID_WIDTH        (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_CLIC_ID_WIDTH),
-                             .CLIC_INTTHRESHBITS   (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_CLIC_INTTHRESHBITS),
                              .INSTR_ADDR_WIDTH     (ENV_PARAM_INSTR_ADDR_WIDTH),
                              .INSTR_RDATA_WIDTH    (ENV_PARAM_INSTR_DATA_WIDTH),
                              .RAM_ADDR_WIDTH       (ENV_PARAM_RAM_ADDR_WIDTH)
@@ -911,23 +910,23 @@ module uvmt_cv32e40s_tb;
 
 
 
-  localparam PMP_ADDR_WIDTH = (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_GRANULARITY > 0) ? 33 - uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_GRANULARITY : 32;
-
-  pmpncfg_t pmpncfg[PMP_MAX_REGIONS];
-  logic [PMP_ADDR_WIDTH-1:0] pmp_addr[PMP_MAX_REGIONS];
-
-  logic [$bits(pmpncfg_t)-1:0] pmpncfg_shadow[PMP_MAX_REGIONS];
-  logic [PMP_ADDR_WIDTH-1:0] pmp_addr_shadow[PMP_MAX_REGIONS];
-
-  generate for (genvar n = 0; n < uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS; n++) begin
-    assign pmpncfg[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmpncfg_csr_i.rdata_q;
-    assign pmp_addr[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmp_addr_csr_i.rdata_q;
-
-    assign pmpncfg_shadow[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmpncfg_csr_i.gen_hardened.shadow_q;
-    assign pmp_addr_shadow[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmp_addr_csr_i.gen_hardened.shadow_q;
-  end endgenerate
-
   if (CORE_PARAM_PMP_NUM_REGIONS > 0) begin: gen_hardened_csrs_pmp_assert
+    localparam PMP_ADDR_WIDTH = (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_GRANULARITY > 0) ? 33 - uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_GRANULARITY : 32;
+
+    pmpncfg_t pmpncfg[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS];
+    logic [PMP_ADDR_WIDTH-1:0] pmp_addr[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS];
+
+    logic [$bits(pmpncfg_t)-1:0] pmpncfg_shadow[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS];
+    logic [PMP_ADDR_WIDTH-1:0] pmp_addr_shadow[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS];
+
+    for (genvar n = 0; n < uvmt_cv32e40s_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS; n++) begin
+      assign pmpncfg[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmpncfg_csr_i.rdata_q;
+      assign pmp_addr[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmp_addr_csr_i.rdata_q;
+
+      assign pmpncfg_shadow[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmpncfg_csr_i.gen_hardened.shadow_q;
+      assign pmp_addr_shadow[n] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.csr_pmp.gen_pmp_csr[n].pmp_region.pmp_addr_csr_i.gen_hardened.shadow_q;
+    end
+
 
     bind cv32e40s_wrapper
       uvmt_cv32e40s_xsecure_hardened_csrs_pmp_assert #(
@@ -945,13 +944,13 @@ module uvmt_cv32e40s_tb;
 
         //CSRs:
         .pmp_mseccfg        (core_i.cs_registers_i.csr_pmp.pmp_mseccfg_csr_i.rdata_q),
-        .pmpncfg            (uvmt_cv32e40s_tb.pmpncfg),
-        .pmp_addr           (uvmt_cv32e40s_tb.pmp_addr),
+        .pmpncfg            (uvmt_cv32e40s_tb.gen_hardened_csrs_pmp_assert.pmpncfg),
+        .pmp_addr           (uvmt_cv32e40s_tb.gen_hardened_csrs_pmp_assert.pmp_addr),
 
         //Shadows:
         .pmp_mseccfg_shadow (core_i.cs_registers_i.csr_pmp.pmp_mseccfg_csr_i.gen_hardened.shadow_q),
-        .pmpncfg_shadow     (uvmt_cv32e40s_tb.pmpncfg_shadow),
-        .pmp_addr_shadow    (uvmt_cv32e40s_tb.pmp_addr_shadow)
+        .pmpncfg_shadow     (uvmt_cv32e40s_tb.gen_hardened_csrs_pmp_assert.pmpncfg_shadow),
+        .pmp_addr_shadow    (uvmt_cv32e40s_tb.gen_hardened_csrs_pmp_assert.pmp_addr_shadow)
       );
 
   end : gen_hardened_csrs_pmp_assert
@@ -1328,10 +1327,30 @@ module uvmt_cv32e40s_tb;
     );
 
 
+    logic [31:0] tdata1_array[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS+1];
+    logic [31:0] tdata2_array[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS+1];
+
+    if (uvmt_cv32e40s_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS > 0) begin
+      for (genvar t = 0; t < uvmt_cv32e40s_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS; t++) begin
+        assign tdata1_array[t] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.debug_triggers_i.gen_triggers.tdata1_rdata[t];
+        assign tdata2_array[t] = dut_wrap.cv32e40s_wrapper_i.core_i.cs_registers_i.debug_triggers_i.gen_triggers.tdata2_rdata[t];
+      end
+      assign tdata1_array[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS] = '0;
+      assign tdata2_array[uvmt_cv32e40s_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS] = '0;
+
+    end else begin
+      assign tdata1_array = {'0};
+      assign tdata2_array = {'0};
+    end
+
+
     bind cv32e40s_wrapper
       uvmt_cv32e40s_support_logic_module_i_if_t support_logic_module_i_if (
         .clk     (core_i.clk),
         .rst_n (rst_ni),
+
+        .tdata1_array (uvmt_cv32e40s_tb.tdata1_array),
+        .tdata2_array (uvmt_cv32e40s_tb.tdata2_array),
 
         .ctrl_fsm_o (core_i.controller_i.controller_fsm_i.ctrl_fsm_o),
 
@@ -1369,11 +1388,10 @@ module uvmt_cv32e40s_tb;
         .lrfodi_bus_req (core_i.load_store_unit_i.buffer_trans_valid),
         .lrfodi_bus_gnt (core_i.load_store_unit_i.buffer_trans_ready),
 
-        .req_is_store (core_i.load_store_unit_i.bus_trans.we),
-        .req_instr_integrity (core_i.if_stage_i.mpu_i.bus_trans_integrity),
-        .req_data_integrity (core_i.load_store_unit_i.mpu_i.bus_trans_integrity),
+        .req_is_store (core_i.m_c_obi_data_if.req_payload.we),
+        .req_instr_integrity (core_i.m_c_obi_instr_if.req_payload.integrity),
+        .req_data_integrity (core_i.m_c_obi_data_if.req_payload.integrity),
         .instr_req_pc ({core_i.m_c_obi_instr_if.req_payload.addr[31:2], 2'b0})
-
     );
 
     bind cv32e40s_wrapper
@@ -1478,7 +1496,7 @@ module uvmt_cv32e40s_tb;
         .dbg                  (rvfi_instr_if.rvfi_dbg_mode),
         .jvt_q                (rvfi_csr_jvt_if.rvfi_csr_rdata),
         .load_access          (|rvfi_instr_if.rvfi_mem_rmask),
-        .misaligned_access_i  (rvfi_instr_if.is_split_datatrans),
+        .misaligned_access_i  (rvfi_instr_if.is_split_datatrans_intended),
         .pma_status_o         (uvmt_cv32e40s_tb.pma_status_rvfidata_word0lowbyte)
       );
 
@@ -1493,11 +1511,12 @@ module uvmt_cv32e40s_tb;
         .clk                  (clknrst_if.clk),
         .rst_n                (clknrst_if.reset_n),
         .addr_i               (rvfi_instr_if.rvfi_mem_addr_word0highbyte),
+          // TODO:WARNING:silabs-robin Should use "instr_mem_addr_word0highbyte"?
         .core_trans_pushpop_i (rvfi_instr_if.is_pushpop),
         .dbg                  (rvfi_instr_if.rvfi_dbg_mode),
         .jvt_q                (rvfi_csr_jvt_if.rvfi_csr_rdata),
         .load_access          (|rvfi_instr_if.rvfi_mem_rmask),
-        .misaligned_access_i  (rvfi_instr_if.is_split_datatrans),
+        .misaligned_access_i  (rvfi_instr_if.is_split_datatrans_intended),
         .pma_status_o         (uvmt_cv32e40s_tb.pma_status_rvfidata_word0highbyte)
       );
 
@@ -1568,7 +1587,7 @@ module uvmt_cv32e40s_tb;
 
     // Support Logic
 
-    bind cv32e40s_wrapper uvmt_cv32e40s_support_logic u_support_logic(.rvfi(rvfi_instr_if),
+    bind cv32e40s_wrapper uvmt_cv32e40s_support_logic u_support_logic(.rvfi (rvfi_instr_if),
                                                                       .in_support_if (support_logic_module_i_if.driver_mp),
                                                                       .out_support_if (support_logic_module_o_if.master_mp)
                                                                       );
@@ -1592,29 +1611,18 @@ module uvmt_cv32e40s_tb;
                                                                     );
 
     bind cv32e40s_wrapper uvmt_cv32e40s_triggers_assert_cov debug_trigger_assert_i(
-                                                                    .wb_valid (core_i.wb_stage_i.wb_valid_o),
-                                                                    .wb_exception_code (core_i.controller_i.controller_fsm_i.exception_cause_wb),
-                                                                    .wb_tdata1 (core_i.cs_registers_i.tdata1_rdata),
-                                                                    .wb_tdata2 (core_i.cs_registers_i.tdata2_rdata),
-                                                                    .priv_lvl (core_i.priv_lvl),
-                                                                    .wb_dbg_mode (rvfi_i.debug_mode[3]),
-                                                                    .wb_last_op (rvfi_i.last_op_wb_i),
-                                                                    .wb_tselect (rvfi_i.rvfi_csr_rdata_d.tselect),
-                                                                    .wb_exception (core_i.controller_i.controller_fsm_i.exception_in_wb),
-
-                                                                    .rvfi_if (rvfi_instr_if),
-                                                                    .clknrst_if (dut_wrap.clknrst_if),
-                                                                    .support_if (support_logic_module_o_if.slave_mp),
-
-                                                                    .tdata1 (rvfi_csr_tdata1_if),
-                                                                    .tdata2 (rvfi_csr_tdata2_if),
-                                                                    .tinfo (rvfi_csr_tinfo_if),
-                                                                    .tselect (rvfi_csr_tselect_if),
-                                                                    .dcsr (rvfi_csr_dcsr_if),
-                                                                    .dpc (rvfi_csr_dpc_if)
-                                                                    );
-
-
+      .tdata1_array (uvmt_cv32e40s_tb.tdata1_array),
+      .priv_lvl (core_i.priv_lvl),
+      .rvfi_if (rvfi_instr_if),
+      .clknrst_if (dut_wrap.clknrst_if),
+      .support_if (support_logic_module_o_if.slave_mp),
+      .tdata1_if (rvfi_csr_tdata1_if),
+      .tdata2_if (rvfi_csr_tdata2_if),
+      .tinfo_if (rvfi_csr_tinfo_if),
+      .tselect_if (rvfi_csr_tselect_if),
+      .dcsr_if (rvfi_csr_dcsr_if),
+      .dpc_if (rvfi_csr_dpc_if)
+    );
 
 
     bind cv32e40s_wrapper uvmt_cv32e40s_zc_assert u_zc_assert(.rvfi(rvfi_instr_if),
@@ -2057,6 +2065,12 @@ module uvmt_cv32e40s_tb;
             $display("    --------------------------------------------------------");
          end
       end
+      // If there are any liveness assertions still pending at this time,
+      // kill all of them to prevent false failures after end of test.
+      // Actual failures _should_ have been caught and logged at this time
+      // This is needed as the core is not necessarily terminated by software,
+      // and there may be outstanding transactions.
+      $assertkill();
    end
    `endif
 
