@@ -35,47 +35,24 @@
 `ifndef __UVMT_CV32E40X_DUT_WRAP_SV__
 `define __UVMT_CV32E40X_DUT_WRAP_SV__
 
+`default_nettype none
+
 
 /**
  * Module wrapper for CV32E40X RTL DUT.
  */
-module uvmt_cv32e40x_dut_wrap
-  import cv32e40x_pkg::*;
-#(
-    // DUT (riscv_core) parameters.
-    parameter              LIB,
-    parameter a_ext_e      A_EXT,
-    parameter b_ext_e      B_EXT,
-    parameter bit          CLIC,
-    parameter bit          CORE_LOG_ENABLE,
-    parameter bit          DEBUG,
-    parameter bit          X_EXT,
-    parameter int          DBG_NUM_TRIGGERS,
-    parameter int          PMA_NUM_REGIONS,
-    parameter int unsigned CLIC_ID_WIDTH,
-    parameter int unsigned NUM_MHPMCOUNTERS,
-    parameter int unsigned X_ID_WIDTH,
-    parameter int unsigned X_MEM_WIDTH,
-    parameter int unsigned X_NUM_RS,
-    parameter int unsigned X_RFR_WIDTH,
-    parameter int unsigned X_RFW_WIDTH,
-    parameter logic [1:0]  X_ECS_XS,
-    parameter logic [31:0] DM_REGION_END,
-    parameter logic [31:0] DM_REGION_START,
-    parameter logic [31:0] X_MISA,
-    parameter m_ext_e      M_EXT,
-    parameter pma_cfg_t    PMA_CFG[PMA_NUM_REGIONS-1:0],
-    parameter rv32_e       RV32,
 
-    // Remaining parameters are used by TB components only
-    parameter INSTR_ADDR_WIDTH,
-    parameter INSTR_RDATA_WIDTH,
-    parameter RAM_ADDR_WIDTH
+module uvmt_cv32e40x_dut_wrap
+#(
+    parameter INSTR_ADDR_WIDTH  =  32,
+    parameter INSTR_RDATA_WIDTH =  32,
+    parameter RAM_ADDR_WIDTH    =  20
   )
   (
     uvma_clknrst_if_t               clknrst_if,
     uvma_interrupt_if_t             interrupt_if,
     uvma_clic_if_t                  clic_if,
+    uvma_wfe_wu_if_t                wfe_wu_if,
     uvmt_cv32e40x_vp_status_if_t    vp_status_if,
     uvme_cv32e40x_core_cntrl_if_t   core_cntrl_if,
     uvmt_cv32e40x_core_status_if_t  core_status_if,
@@ -84,121 +61,38 @@ module uvmt_cv32e40x_dut_wrap
     uvma_fencei_if_t                fencei_if
   );
 
-    import uvm_pkg::*; // needed for the UVM messaging service (`uvm_info(), etc.)
-    /*
-    // signals connecting core to memory
-    logic                         instr_req;
-    logic                         instr_gnt;
-    logic                         instr_rvalid;
-    logic [INSTR_ADDR_WIDTH-1 :0] instr_addr;
-    logic [INSTR_RDATA_WIDTH-1:0] instr_rdata;
+    logic         debug_havereset;
+    logic         debug_running;
+    logic         debug_halted;
+    logic         debug_pc_valid;
+    logic [31:0]  debug_pc;
 
-    logic                         data_req;
-    logic                         data_gnt;
-    logic                         data_rvalid;
-    logic [31:0]                  data_addr;
-    logic                         data_we;
-    logic [3:0]                   data_be;
-    logic [31:0]                  data_rdata;
-    logic [31:0]                  data_wdata;
+    logic  alert_major;
+    logic  alert_minor;
 
-    logic [31:0]                  irq;
-  */
-    logic                         debug_havereset;
-    logic                         debug_running;
-    logic                         debug_halted;
-    logic                         debug_pc_valid;
-    logic [31:0]                  debug_pc;
 
-    // eXtension interface
-    // todo: Connect to TB when implemented.
-    // Included to allow core-v-verif to compile with RTL including
-    // interface definition.
-    cv32e40x_if_xif xif();
-
-    assign debug_if.clk      = clknrst_if.clk;
-    assign debug_if.reset_n  = clknrst_if.reset_n;
-
-    // --------------------------------------------
-    // OBI Instruction agent v1.2 signal tie-offs
-    assign obi_instr_if.we        = 'b0;
-    assign obi_instr_if.be        = 'hf; // Always assumes 32-bit full bus reads on instruction OBI
-    assign obi_instr_if.auser     = 'b0;
-    assign obi_instr_if.wuser     = 'b0;
-    assign obi_instr_if.aid       = 'b0;
-    assign obi_instr_if.wdata     = 'b0;
-    assign obi_instr_if.reqpar    = ~obi_instr_if.req;
-    assign obi_instr_if.rready    = 1'b1;
-    assign obi_instr_if.rreadypar = 1'b0;
-
-    // --------------------------------------------
-    // OBI Data agent v1.2 signal tie-offs
-    assign obi_data_if.auser      = 'b0;
-    assign obi_data_if.wuser      = 'b0;
-    assign obi_data_if.aid        = 'b0;
-    assign obi_data_if.reqpar     = ~obi_data_if.req;
-    assign obi_data_if.rready     = 1'b1;
-    assign obi_data_if.rreadypar  = 1'b0;
-
-    // --------------------------------------------
-    // Connect to uvma_interrupt_if
-    assign interrupt_if.clk         = clknrst_if.clk;
-    assign interrupt_if.reset_n     = clknrst_if.reset_n;
-    assign interrupt_if.irq_id      = cv32e40x_wrapper_i.core_i.irq_id;
-    assign interrupt_if.irq_ack     = cv32e40x_wrapper_i.core_i.irq_ack;
-
-    // --------------------------------------------
-    assign clic_if.clk              = clknrst_if.clk;
-    assign clic_if.reset_n          = clknrst_if.reset_n;
-    assign clic_if.irq_ack          = cv32e40x_wrapper_i.core_i.irq_ack;
-
-    // --------------------------------------------
-    // Connect to core_cntrl_if
-    assign core_cntrl_if.num_mhpmcounters = NUM_MHPMCOUNTERS;
-    assign core_cntrl_if.b_ext = B_EXT;
-    `ifndef FORMAL
-    initial begin
-      core_cntrl_if.pma_cfg = new[PMA_NUM_REGIONS];
-      foreach (core_cntrl_if.pma_cfg[i]) begin
-        core_cntrl_if.pma_cfg[i].word_addr_low  = PMA_CFG[i].word_addr_low;
-        core_cntrl_if.pma_cfg[i].word_addr_high = PMA_CFG[i].word_addr_high;
-        core_cntrl_if.pma_cfg[i].main           = PMA_CFG[i].main;
-        core_cntrl_if.pma_cfg[i].bufferable     = PMA_CFG[i].bufferable;
-        core_cntrl_if.pma_cfg[i].cacheable      = PMA_CFG[i].cacheable;
-        core_cntrl_if.pma_cfg[i].atomic         = PMA_CFG[i].atomic;
-      end
-    end
-    `endif
-
-    // --------------------------------------------
     // instantiate the core
+
     cv32e40x_wrapper #(
-      .A_EXT            (A_EXT),
-      .B_EXT            (B_EXT),
-      .CLIC             (CLIC),
-      .CLIC_ID_WIDTH    (CLIC_ID_WIDTH),
-      .CORE_LOG_ENABLE  (CORE_LOG_ENABLE),
-      .DBG_NUM_TRIGGERS (DBG_NUM_TRIGGERS),
-      .DEBUG            (DEBUG),
-      .DM_REGION_END    (DM_REGION_END),
-      .DM_REGION_START  (DM_REGION_START),
-      .LIB              (LIB),
-      .M_EXT            (M_EXT),
-      .NUM_MHPMCOUNTERS (NUM_MHPMCOUNTERS),
-      .PMA_CFG          (PMA_CFG),
-      .PMA_NUM_REGIONS  (PMA_NUM_REGIONS),
-      .RV32             (RV32),
-      .X_ECS_XS         (X_ECS_XS),
-      .X_EXT            (X_EXT),
-      .X_ID_WIDTH       (X_ID_WIDTH),
-      .X_MEM_WIDTH      (X_MEM_WIDTH),
-      .X_MISA           (X_MISA),
-      .X_NUM_RS         (X_NUM_RS),
-      .X_RFR_WIDTH      (X_RFR_WIDTH),
-      .X_RFW_WIDTH      (X_RFW_WIDTH)
-                      )
-    cv32e40x_wrapper_i
-        (
+      .B_EXT            (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_B_EXT),
+      .CLIC             (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_CLIC),
+      .CLIC_ID_WIDTH    (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_CLIC_ID_WIDTH),
+      .DBG_NUM_TRIGGERS (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_DBG_NUM_TRIGGERS),
+      .DM_REGION_END    (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_DM_REGION_END),
+      .DM_REGION_START  (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_DM_REGION_START),
+      .LFSR0_CFG        (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_LFSR0_CFG),
+      .LFSR1_CFG        (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_LFSR1_CFG),
+      .LFSR2_CFG        (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_LFSR2_CFG),
+      .M_EXT            (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_M_EXT),
+      .PMA_CFG          (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMA_CFG),
+      .PMA_NUM_REGIONS  (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMA_NUM_REGIONS),
+      .PMP_GRANULARITY  (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_GRANULARITY),
+      .PMP_MSECCFG_RV   (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_MSECCFG_RV),
+      .PMP_NUM_REGIONS  (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS),
+      .PMP_PMPADDR_RV   (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_PMPADDR_RV),
+      .PMP_PMPNCFG_RV   (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_PMPNCFG_RV),
+      .RV32             (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_RV32)
+    ) cv32e40x_wrapper_i (
          .clk_i                  ( clknrst_if.clk                 ),
          .rst_ni                 ( clknrst_if.reset_n             ),
 
@@ -212,40 +106,42 @@ module uvmt_cv32e40x_dut_wrap
          .dm_exception_addr_i    ( core_cntrl_if.dm_exception_addr),
 
          .instr_req_o            ( obi_instr_if.req               ),
+         .instr_reqpar_o         ( obi_instr_if.reqpar            ),
          .instr_gnt_i            ( obi_instr_if.gnt               ),
+         .instr_gntpar_i         ( obi_instr_if.gntpar            ),
          .instr_addr_o           ( obi_instr_if.addr              ),
+         .instr_achk_o           ( obi_instr_if.achk              ),
          .instr_prot_o           ( obi_instr_if.prot              ),
          .instr_dbg_o            ( obi_instr_if.dbg               ),
          .instr_memtype_o        ( obi_instr_if.memtype           ),
          .instr_rdata_i          ( obi_instr_if.rdata             ),
+         .instr_rchk_i           ( obi_instr_if.rchk              ),
          .instr_rvalid_i         ( obi_instr_if.rvalid            ),
+         .instr_rvalidpar_i      ( obi_instr_if.rvalidpar         ),
          .instr_err_i            ( obi_instr_if.err               ),
 
          .data_req_o             ( obi_data_if.req                ),
+         .data_reqpar_o          ( obi_data_if.reqpar             ),
          .data_gnt_i             ( obi_data_if.gnt                ),
+         .data_gntpar_i          ( obi_data_if.gntpar             ),
          .data_rvalid_i          ( obi_data_if.rvalid             ),
+         .data_rvalidpar_i       ( obi_data_if.rvalidpar          ),
          .data_we_o              ( obi_data_if.we                 ),
          .data_be_o              ( obi_data_if.be                 ),
          .data_addr_o            ( obi_data_if.addr               ),
+         .data_achk_o            ( obi_data_if.achk               ),
          .data_wdata_o           ( obi_data_if.wdata              ),
          .data_prot_o            ( obi_data_if.prot               ),
          .data_dbg_o             ( obi_data_if.dbg                ),
          .data_memtype_o         ( obi_data_if.memtype            ),
          .data_rdata_i           ( obi_data_if.rdata              ),
-         .data_atop_o            ( obi_data_if.atop               ),
+         .data_rchk_i            ( obi_data_if.rchk               ),
          .data_err_i             ( obi_data_if.err                ),
-         .data_exokay_i          ( obi_data_if.exokay             ),
-         .xif_compressed_if      ( xif.cpu_compressed             ),
-         .xif_issue_if           ( xif.cpu_issue                  ),
-         .xif_commit_if          ( xif.cpu_commit                 ),
-         .xif_mem_if             ( xif.cpu_mem                    ),
-         .xif_mem_result_if      ( xif.cpu_mem_result             ),
-         .xif_result_if          ( xif.cpu_result                 ),
 
          .mcycle_o               ( /*todo: connect */             ),
 
          .irq_i                  ( interrupt_if.irq               ),
-         .wu_wfe_i               (                                ), // todo: hook up (krdosvik, henrik have a fix)
+         .wu_wfe_i               ( wfe_wu_if.wfe_wu               ),
          .clic_irq_i             ( clic_if.clic_irq               ),
          .clic_irq_id_i          ( clic_if.clic_irq_id            ),
          .clic_irq_level_i       ( clic_if.clic_irq_level         ),
@@ -253,8 +149,8 @@ module uvmt_cv32e40x_dut_wrap
          .clic_irq_shv_i         ( clic_if.clic_irq_shv           ),
 
 
-         .fencei_flush_req_o     ( fencei_if.flush_req          ),
-         .fencei_flush_ack_i     ( fencei_if.flush_ack          ),
+         .fencei_flush_req_o     ( fencei_if.flush_req            ),
+         .fencei_flush_ack_i     ( fencei_if.flush_ack            ),
 
          .debug_req_i            ( debug_if.debug_req             ),
          .debug_havereset_o      ( debug_havereset                ),
@@ -268,5 +164,7 @@ module uvmt_cv32e40x_dut_wrap
         );
 
 endmodule : uvmt_cv32e40x_dut_wrap
+
+`default_nettype wire
 
 `endif // __UVMT_CV32E40X_DUT_WRAP_SV__
