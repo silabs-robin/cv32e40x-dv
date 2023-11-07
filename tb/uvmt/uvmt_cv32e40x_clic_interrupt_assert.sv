@@ -267,7 +267,7 @@ module uvmt_cv32e40x_clic_interrupt_assert
   typedef enum logic [1:0] {
     M_MODE = 2'b11,
     I_MODE = 2'b10, // Illegal, reserved
-    S_MODE = 2'b01, // Not used in 40S/X
+    S_MODE = 2'b01, // Not used in 40X/X
     U_MODE = 2'b00  // Not used in 40X
   } priv_mode_t;
 
@@ -2942,6 +2942,19 @@ module uvmt_cv32e40x_clic_interrupt_assert
     else
       `uvm_error(info_tag,
         $sformatf("mret result state incorrect"));
+
+
+    //mret to umode clears mintthresh
+    a_mret_umode_clear_mintthresh: assert property (
+      rvfi_if.is_mret
+      ##1 rvfi_valid[->1]
+      ##0 rvfi_if.is_umode
+      |->
+      csr_mintthresh_if.rvfi_csr_rdata == 0
+    )
+    else
+      `uvm_error(info_tag,
+        $sformatf("mret to umode does not clear mintthresh"));
 
     // this assert verifies that mode is correctly restored on an mret
     property p_mret_mode_mpp;
