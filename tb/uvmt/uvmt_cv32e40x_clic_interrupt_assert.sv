@@ -267,7 +267,7 @@ module uvmt_cv32e40x_clic_interrupt_assert
   typedef enum logic [1:0] {
     M_MODE = 2'b11,
     I_MODE = 2'b10, // Illegal, reserved
-    S_MODE = 2'b01, // Not used in 40S/X
+    S_MODE = 2'b01, // Not used in 40X/X
     U_MODE = 2'b00  // Not used in 40X
   } priv_mode_t;
 
