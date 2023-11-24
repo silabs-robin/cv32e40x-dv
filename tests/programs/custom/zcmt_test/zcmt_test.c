@@ -51,7 +51,7 @@
 // Convenience macros for bit fields
 // ---------------------------------------------------------------
 #define MARCHID_CV32E40X 0x14
-#define MARCHID_CV32E40S 0x15
+#define MARCHID_CV32E40X 0x15
 
 #define OPCODE_SYSTEM  0x73
 
@@ -321,7 +321,7 @@ uint32_t has_pmp_configured(void) {
     case (MARCHID_CV32E40X):
       return 0;
       break;
-    case (MARCHID_CV32E40S):
+    case (MARCHID_CV32E40X):
       ;; // Do nothing and continue execution
       break;
   }

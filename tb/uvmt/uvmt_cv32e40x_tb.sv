@@ -814,6 +814,57 @@ module uvmt_cv32e40x_tb;
   bind cv32e40x_wrapper
     uvmt_cv32e40x_support_logic_module_o_if_t support_logic_module_o_if();
 
+  `ifndef  COREV_ASSERT_OFF
+    bind uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.if_stage_i.mpu_i.pmp.pmp_i
+      uvmt_cv32e40x_pmp_assert#(
+        .PMP_GRANULARITY  (PMP_GRANULARITY),
+        .PMP_NUM_REGIONS  (PMP_NUM_REGIONS),
+        .IS_INSTR_SIDE    (1'b1),
+        .PMP_MSECCFG_RV   (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_MSECCFG_RV)
+      )
+      u_pmp_assert_if_stage(.rst_n          (clknrst_if.reset_n),
+                            .bus_trans_dbg  (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.if_stage_i.mpu_i.bus_trans_o.dbg),
+                            .obi_addr       (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.instr_addr_o),
+                            .obi_gnt        (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.instr_gnt_i),
+                            .obi_req        (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.instr_req_o),
+                            .rvfi_pc_rdata  (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.rvfi_i.rvfi_pc_rdata),
+                            .rvfi_valid     (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.rvfi_i.rvfi_valid),
+                            .*);
+  `endif
+
+  `ifndef  COREV_ASSERT_OFF
+    bind uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.load_store_unit_i.mpu_i.pmp.pmp_i
+      uvmt_cv32e40x_pmp_assert#(
+        .PMP_GRANULARITY  (PMP_GRANULARITY),
+        .PMP_NUM_REGIONS  (PMP_NUM_REGIONS),
+        .IS_INSTR_SIDE    (1'b0),
+        .PMP_MSECCFG_RV   (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_MSECCFG_RV)
+      )
+      u_pmp_assert_lsu(.rst_n          (clknrst_if.reset_n),
+                       .bus_trans_dbg  (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.load_store_unit_i.mpu_i.bus_trans_o.dbg),
+                       .obi_addr       (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.data_addr_o),
+                       .obi_gnt        (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.data_gnt_i),
+                       .obi_req        (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.core_i.data_req_o),
+                       .rvfi_pc_rdata  (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.rvfi_i.rvfi_pc_rdata),
+                       .rvfi_valid     (uvmt_cv32e40x_tb.dut_wrap.cv32e40x_wrapper_i.rvfi_i.rvfi_valid),
+                       .*);
+  `endif
+
+  `ifndef  COREV_ASSERT_OFF
+    bind  dut_wrap.cv32e40x_wrapper_i.rvfi_i
+      uvmt_cv32e40x_pmprvfi_assert #(
+        .PMP_GRANULARITY (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_GRANULARITY),
+        .PMP_NUM_REGIONS (uvmt_cv32e40x_base_test_pkg::CORE_PARAM_PMP_NUM_REGIONS)
+      ) pmprvfi_assert_i (
+        .rvfi_if        (dut_wrap.cv32e40x_wrapper_i.rvfi_instr_if),
+        .rvfi_mem_addr  (rvfi_mem_addr [31:0]),
+        .rvfi_mem_wmask (rvfi_mem_wmask[ 3:0]),
+        .rvfi_mem_rmask (rvfi_mem_rmask[ 3:0]),
+        .*
+      );
+  `endif
+
+
   // PMA Asserts & Covers
 
   wire pma_status_t  pma_status_instr;
